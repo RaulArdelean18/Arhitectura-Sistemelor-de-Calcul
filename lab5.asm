@@ -88,7 +88,7 @@ segment code use32 class=code
         cdq ; eax = edx:eax 
         add eax, dword[g]
         ;add edx, dword[g+3]
-        add edx, dword[g+4] ; sunt 4 octeti intr-un dword, nu 3
+        adc edx, dword[g+4] ; sunt 4 octeti intr-un dword, nu 3
         ;idiv [f] ; nu pot face impartirea cu ceva din segment data (sper)
         mov ecx, [f] ; f ii dword, deci convine
         idiv ecx ; edx:eax / ecx =eax = catul, edx = restul ; eax = (d-e+g)/f 
