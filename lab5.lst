@@ -1,0 +1,116 @@
+     1                                  ;Se considera urmatoarea problema si solutia propusa(codul sursa). Este solutia corecta?
+     2                                  ;Daca considerati ca este necesar, modificati codul pentru a rezolva problema.
+     3                                  ;Asigurati-va ca codul se asambleaza fara erori sau advertismente.
+     4                                  ;--------------------------------------------------------------------------------------------------
+     5                                  ; Se dau cuvantul A si octetul B. Se cere dublucuvantul C:
+     6                                  ; bitii 0-2 ai lui C coincid cu bitii 5-7 ai lui B
+     7                                  ; bitii 3-7 ai lui C coincid cu bitii 0-4 ai lui A
+     8                                  ; bitii 8-9 ai lui C sunt egali cu 1
+     9                                  ; bitii 10-15 ai lui C coincid cu bitii 6-11 ai lui A
+    10                                  ; bitii 16-31 ai lui C sunt bitii negati lui A
+    11                                  ;Sa se calculeze in interpretare cu semn(d-e+g)/f -e*2, unde d-byte, e-word, f=doubleword, g=qword
+    12                                  bits 32 ; assembling for the 32 bits architecture
+    13                                  
+    14                                  ; declare the EntryPoint (a label defining the very first instruction of the program)
+    15                                  global start        
+    16                                  
+    17                                  ; declare external functions needed by our program
+    18                                  extern exit               ; tell nasm that exit exists even if we won't be defining it
+    19                                  import exit msvcrt.dll    ; exit is a function that ends the calling process. It is defined in msvcrt.dll
+    20                                                            ; msvcrt.dll contains exit, printf and all the other important C-runtime specific functions
+    21                                  
+    22                                  ; our data is declared here (the variables needed by our program)
+    23                                  segment data use32 class=data
+    24                                      ; ...
+    25 00000000 96D2                        a dw 1101001010010110b
+    26 00000002 9B                          b db 10011011b
+    27 00000003 00000000                    c dd 0
+    28 00000007 0B                          d db 11
+    29 00000008 0400                        e dw 4
+    30 0000000A 05000000                    f dd 5
+    31 0000000E 0100000000000000            g dq 1
+    32                                  ; our code starts here
+    33                                  segment code use32 class=code
+    34                                      start:
+    35                                          ; ...
+    36                                          ;mov bx,0
+    37                                          
+    38                                          ; pasul 1: bitii 0-2 ai lui C coincid cu bitii 5-7 ai lui B
+    39                                          
+    40 00000000 BB00000000                      mov ebx, 0 ; vreau sa fie val 0 toata memoria ebx, ma ajuta pe viitor
+    41 00000005 A0[02000000]                    mov al, [b] ; al = b, unde b ii byte 
+    42                                          ;rol al, 5
+    43 0000000A C0C805                          ror al, 5 ; al = 0000 0100b
+    44 0000000D 2407                            and al, 07h ; 07h = 0000 0111b, masca care setez bitii lui b
+    45                                          ;and bl,al
+    46 0000000F 08C3                            or bl,al ; setez bl cu bitii 0-3 din b, care ii am in al
+    47                                          
+    48                                          ; pasul 2: bitii 3-7 ai lui C coincid cu bitii 0-4 ai lui A
+    49                                          
+    50 00000011 66A1[00000000]                  mov ax, [a]
+    51                                          ;shl ax, bx ; trebuie sa deplasez spre stanga 3 biti, nu bx 
+    52 00000017 66C1E003                        shl ax, 3 
+    53 0000001B 6625F800                        and ax, 00F8h ; 0000 0000 1111 1000b = 00F8h, ii corect
+    54 0000001F 6609C3                          or bx, ax ; pun in bx bitii setati din zona 0-4 a lui A, care sunt acuma pe pozitiile 3-7
+    55                                          
+    56                                          ;pasul 3: bitii 8-9 ai lui C sunt egali cu 1
+    57                                          
+    58 00000022 80CF03                          or bh, 00000011b ; ii corect, in bh am bitii de la 8 la 15, deci 11 sunt bitii 8 si 9 din bx
+    59                                          
+    60                                          ;pasul 4: bitii 10-15 ai lui C coincid cu bitii 6-11 ai lui A
+    61                                          
+    62                                          ;mov ax, a ; nu pot accesa astfel a din segment data, eroare
+    63                                          ; A = 10, B = 11, C = 12 = 8 + 4 = 1100b
+    64 00000025 66A1[00000000]                  mov ax, [a]
+    65 0000002B 66C1E004                        shl ax, 4
+    66                                          ;and ax, FC00h ; 1111 1100 0000 0000b
+    67 0000002F 662500FC                        and ax, 0FC00h ; crapa daca cel mai din stanga octet ii litera, trebuie sa fie o cifra
+    68 00000033 6609C3                          or bx, ax
+    69 00000036 091D[03000000]                  or [c], ebx ; aici m-a ajutat mov ebx, 0 ca sa imi setez ultimii 4 octeti cu 0
+    70                                          
+    71                                          ;pasul 5: bitii 16-31 ai lui C sunt bitii negati lui A
+    72                                          
+    73                                          ;movzx eax, dword[a]
+    74 0000003C 0FB705[00000000]                movzx eax, word[a] ; a ii word, nu dword, deci crapa codul
+    75 00000043 C1C010                          rol eax, 16; mut in stanga bitii lui a, i mean am putea face si shiftare, doar ca oricum nu ne intereseaza bitii [16,31], deci scapam de ei dupa ce facem and cu masca 0FFFF0000h
+    76 00000046 F7D0                            not eax
+    77 00000048 250000FFFF                      and eax, 11111111111111110000000000000000b ; 0FFFF0000h = 1111 1111 1111 1111 0000 0000 0000 0000b, ii corecta linia
+    78 0000004D 0905[03000000]                  or [c], eax
+    79                                          
+    80                                          ;pasul 6: rezolvarea ecuatiei cu semn (d-e+g)/f -e*2, unde d-byte, e-word, f=doubleword, g=qword
+    81                                          
+    82                                          ;mov al, word[d]
+    83 00000053 A0[07000000]                    mov al, [d] ; d ii byte, nu word, deci crapa codul
+    84 00000058 6698                            cbw ; din al devine ax cu semn, conversie cu semn
+    85                                          ;sub al, [e]
+    86 0000005A 662B05[08000000]                sub ax, [e] ; e ii word, al ii byte, deci crapa codul
+    87 00000061 98                              cwde ; ax = eax 
+    88 00000062 99                              cdq ; eax = edx:eax 
+    89 00000063 0305[0E000000]                  add eax, dword[g]
+    90                                          ;add edx, dword[g+3]
+    91 00000069 0315[12000000]                  add edx, dword[g+4] ; sunt 4 octeti intr-un dword, nu 3
+    92                                          ;idiv [f] ; nu pot face impartirea cu ceva din segment data (sper)
+    93 0000006F 8B0D[0A000000]                  mov ecx, [f] ; f ii dword, deci convine
+    94 00000075 F7F9                            idiv ecx ; edx:eax / ecx =eax = catul, edx = restul ; eax = (d-e+g)/f 
+    95 00000077 89C3                            mov ebx, eax ; ebx = (d-e+g)/f
+    96                                          
+    97                                          
+    98 00000079 66B80200                        mov ax, 2
+    99                                          ;mul word[e]
+   100 0000007D 668B0D[08000000]                mov cx, [e]
+   101 00000084 66F7E9                          imul cx ; inmultire cu semn, dx:ax = ax * cx, unde in cx trebuie sa am wordul e
+   102                                          
+   103 00000087 6652                            push dx
+   104 00000089 6650                            push ax
+   105 0000008B 58                              pop eax ; din dx:ax il transform in eax, folosind stiva
+   106                                          
+   107 0000008C 29C3                            sub ebx, eax ; in ebx am (d-e+g)/f, in eax am 2*e, deci fac ebx-eax, iar raspunsul final mi in  ebx 
+   108                                          ; exit(0)
+   109                                          
+   110                                          ; d = 11
+   111                                          ; e = 4
+   112                                          ; f = 5
+   113                                          ; g = 1
+   114                                          ; ec = -7
+   115 0000008E 6A00                            push    dword 0      ; push the parameter for exit onto the stack
+   116 00000090 FF15[00000000]                  call    [exit]       ; call exit to terminate the program

@@ -1,0 +1,89 @@
+     1                                  ;Se considera urmatoarea problema si solutia propusa(codul sursa). Este solutia corecta?
+     2                                  ;Daca considerati ca este necesar, modificati codul pentru a rezolva problema.
+     3                                  ;Asigurati-va ca codul se asambleaza fara erori sau advertismente.
+     4                                  ;--------------------------------------------------------------------------------------------------
+     5                                  ; Se dau cuvantul A si octetul B. Se cere dublucuvantul C:
+     6                                  ; bitii 0-2 ai lui C coincid cu bitii 5-7 ai lui B
+     7                                  ; bitii 3-7 ai lui C coincid cu bitii 0-4 ai lui A
+     8                                  ; bitii 8-9 ai lui C sunt egali cu 1
+     9                                  ; bitii 10-15 ai lui C coincid cu bitii 6-11 ai lui A
+    10                                  ; bitii 16-31 ai lui C sunt bitii coincid cu bitii negati lui A
+    11                                  ;Sa se calculeze in interpretare cu semn(d-e+g)/f -e*2, unde d-byte, e-word, f=doubleword, g=qword
+    12                                  bits 32 ; assembling for the 32 bits architecture
+    13                                  
+    14                                  ; declare the EntryPoint (a label defining the very first instruction of the program)
+    15                                  global start        
+    16                                  
+    17                                  ; declare external functions needed by our program
+    18                                  extern exit               ; tell nasm that exit exists even if we won't be defining it
+    19                                  import exit msvcrt.dll    ; exit is a function that ends the calling process. It is defined in msvcrt.dll
+    20                                                            ; msvcrt.dll contains exit, printf and all the other important C-runtime specific functions
+    21                                  
+    22                                  ; our data is declared here (the variables needed by our program)
+    23                                  segment data use32 class=data
+    24                                      ; ...
+    25 00000000 96D2                        a dw 1101001010010110b
+    26 00000002 9B                          b db 10011011b
+    27 00000003 00000000                    c dd 0
+    28 00000007 0A                          d db 10
+    29 00000008 0300                        e dw 3
+    30 0000000A 04000000                    f dd 4
+    31 0000000E 0200000000000000            g dq 2
+    32                                  ; our code starts here
+    33                                  segment code use32 class=code
+    34                                      start:
+    35                                          ; ...
+    36 00000000 BB00000000                      mov ebx,0
+    37 00000005 A0[02000000]                    mov al, [b]
+    38                                          ;ror al, 2
+    39 0000000A C0C805                          ror al, 5
+    40 0000000D 2407                            and al, 07h ; 0000 0111b
+    41 0000000F 6609C3                          or  bx,ax ; bx = 0000 0000 0000 0111b
+    42 00000012 66A1[00000000]                  mov ax, [a] ; 1101 0010 1001 0110b
+    43                                          
+    44 00000018 66C1E003                        shl ax, 3 ; 1001 0100 1011 0000b
+    45 0000001C 6625F800                        and ax, 0000000011111000b ; 0000 0000 1011 0000 b
+    46 00000020 6609C3                          or bx, ax ; bx = 0000 0000 1011 0111b
+    47                                          
+    48 00000023 80CF03                          or bh, 03h ; 0000 0011 0000 0000 b
+    49                                          ; bx = 0000 0011 1011 0111b
+    50 00000026 66A1[00000000]                  mov ax, [a]
+    51 0000002C 66C1E004                        shl ax, 4
+    52 00000030 662500FC                        and ax, 1111110000000000b ; 0010100000000000b
+    53 00000034 6609C3                          or bx, ax ; 0010 1011 1011 0111b
+    54 00000037 091D[03000000]                  or [c], ebx ; [c]=ebx
+    55                                          ;movzx eax, dword[a]
+    56 0000003D 0FB705[00000000]                movzx eax, word [a]
+    57 00000044 C1C010                          rol eax, 16
+    58 00000047 F7D0                            not eax
+    59 00000049 250000FFFF                      and eax, 0FFFF0000h
+    60 0000004E 0905[03000000]                  or [c], eax
+    61                                          
+    62                                          ;(d-e+g)/f -e*2 signed
+    63                                          ;d-byte, e-word, f=doubleword, g=qword
+    64 00000054 A0[07000000]                    mov al, [d]
+    65 00000059 6698                            cbw 
+    66 0000005B 662B05[08000000]                sub ax, [e]
+    67                                          ;cwd
+    68 00000062 98                              cwde
+    69 00000063 99                              cdq
+    70                                          ;add eax, dword[g]
+    71                                          ;add edx, dword[g+2]
+    72 00000064 0305[0E000000]                  add eax, dword [g]
+    73 0000006A 1315[12000000]                  adc edx, dword [g+4]
+    74                                          ;idiv [f]
+    75 00000070 8B0D[0A000000]                  mov ecx, [f]
+    76 00000076 F7F9                            idiv ecx ; eax = catul, edx = restul ; eax = (d-e+g)/f
+    77 00000078 89C3                            mov ebx, eax ; ebx = (d-e+g)/f
+    78                                          ;mov al, 2
+    79 0000007A 66B80200                        mov ax, 2
+    80 0000007E 668B0D[08000000]                mov cx, [e]
+    81 00000085 66F7E9                          imul cx ; dx:ax=2*e
+    82 00000088 6652                            push dx
+    83 0000008A 6650                            push ax
+    84                                          ;pop al
+    85 0000008C 58                              pop eax
+    86 0000008D 29C3                            sub ebx, eax
+    87                                          ; exit(0)
+    88 0000008F 6A00                            push    dword 0      ; push the parameter for exit onto the stack
+    89 00000091 FF15[00000000]                  call    [exit]       ; call exit to terminate the program
