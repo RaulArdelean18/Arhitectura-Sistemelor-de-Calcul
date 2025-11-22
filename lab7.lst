@@ -1,0 +1,89 @@
+     1                                  bits 32 ; assembling for the 32 bits architecture
+     2                                  
+     3                                  ; declare the EntryPoint (a label defining the very first instruction of the program)
+     4                                  global start        
+     5                                  
+     6                                  ; declare external functions needed by our program
+     7                                  extern exit               ; tell nasm that exit exists even if we won't be defining it
+     8                                  import exit msvcrt.dll    ; exit is a function that ends the calling process. It is defined in msvcrt.dll
+     9                                                            ; msvcrt.dll contains exit, printf and all the other important C-runtime specific functions
+    10                                  
+    11                                  ; our data is declared here (the variables needed by our program)
+    12                                  segment data use32 class=data
+    13 00000000 0A09020704030C0B08-         s1 dd 0702090Ah, 0B0C0304h, 05060108h
+    13 00000009 010605             
+    14                                      len equ 6 ;; 3 dublucuvinte (fiecare cate 2 octeti) => 6 octeti in total
+    15 0000000C 00<rept>                    b times len db 0
+    16                                      ; ...
+    17                                  
+    18                                  ; our code starts here
+    19                                  segment code use32 class=code
+    20                                      start:
+    21                                          ; ...
+    22                                          
+    23 00000000 B903000000                      mov ecx, 3 ; avem 3 dublu cuvinte de operat
+    24 00000005 BE[00000000]                    mov esi, s1 ; pun in esi pe s1 
+    25 0000000A BF[0C000000]                    mov edi, b ; pun in edi pe b 
+    26 0000000F FC                              cld
+    27                                          
+    28                                          bucla1:
+    29 00000010 AD                              lodsd ; pun in eax dublucuvantul din esi (s1)
+    30 00000011 89C3                            mov ebx, eax ; fac o copie la eax si il pun in ebx
+    31                                  
+    32                                          ; ----------- partea 1 ------------------------
+    33 00000013 C1E810                          shr eax, 16 ; 0702090Ah => ax = 0702h     
+    34 00000016 C0E404                          shl ah,4 ; ax = 7002h
+    35 00000019 08E0                            or al,ah ; al = 72h
+    36 0000001B AA                              stosb ; il pun in b pe 72h
+    37                                          
+    38                                          ; ----------- partea 2 ------------------------
+    39 0000001C 6689D8                          mov ax, bx ; pun partea low care am elimninat-o in partea 1, deci o sa am ax = 090Ah
+    40 0000001F C0E404                          shl ah, 4 ; ah = 90 => ax = 900Ah
+    41 00000022 08E0                            or al, ah ; al = 9Ah 
+    42 00000024 AA                              stosb ; il pun in b pe 9Ah 
+    43                                          
+    44 00000025 E2E9                            loop bucla1
+    45                                          
+    46                                          ; for(int i=1;i<=n-1;i++)
+    47                                          ;     for(int j=i+1;j<=n;j++)
+    48                                          ;         if(v[i]>v[j])
+    49                                          ;             swap(v[i],v[j]);
+    50                                          
+    51 00000027 B905000000                      mov ecx, len - 1   ; am len-1 pasi in bucla cu i - ul 
+    52 0000002C BB[0C000000]                    mov ebx, b ; sirul b in ebx
+    53                                  
+    54                                          outer_loop: ; for (i=1;i<=n-1;i++)
+    55                                  
+    56 00000031 89DF                                mov edi, ebx        
+    57 00000033 89DE                                mov esi, ebx ; pun in esi pointerul lui b+i
+    58 00000035 46                                  inc esi ; ii dau increment ca sa fiu pe b+i+1
+    59 00000036 89CA                                mov edx, ecx ; contorul pentru inner_loop, se ruleaza n-i-1 ori
+    60                                  
+    61                                              inner_loop:
+    62                                  
+    63 00000038 AC                                      lodsb ; pun in al val din [esi] 
+    64 00000039 3A07                                    cmp al, [edi] ; compar al cu [edi]
+    65                                                  
+    66                                                  ; daca v[i]>=v[j] dam continue la operatie, ii dam skip
+    67 0000003B 7D03                                    jge skip_new_min   
+    68                                  
+    69 0000003D 89F7                                    mov edi, esi  ; edi pointeaza la j+1
+    70 0000003F 4F                                      dec edi ; il actualizam sa ramana in j
+    71                                  
+    72                                                  skip_new_min:       
+    73 00000040 4A                                          dec edx ; decrementez nr de pasi pt inner_loop
+    74 00000041 75F5                                        jnz inner_loop ; daca nu am ajuns cu i - ul in n, continuam operatiunea     
+    75                                                      
+    76 00000043 8A03                                        mov al, [ebx] ; al = v[i]  
+    77 00000045 8A27                                        mov ah, [edi] ; ah = v[j]
+    78                                                      
+    79                                                      ; aici dam swap intre v[i] si v[j]
+    80 00000047 8823                                        mov [ebx], ah       
+    81 00000049 8807                                        mov [edi], al       
+    82                                                      
+    83 0000004B 43                                          inc ebx ; incrementez i - ul            
+    84 0000004C E2E3                                        loop outer_loop     
+    85                                      
+    86                                          ; exit(0)
+    87 0000004E 6A00                            push    dword 0      ; push the parameter for exit onto the stack
+    88 00000050 FF15[00000000]                  call    [exit]       ; call exit to terminate the program
